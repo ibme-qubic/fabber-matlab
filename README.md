@@ -22,12 +22,13 @@ always present and contains the 4D model prediction.
 Option specification
 --------------------
 
-Many Fabber options contain `-` characters (e.g. `save-mean` which cannot be used as 
-field names in a Matlab structure which is what we use to pass the `rundata` options
-in the above example. 
+Many Fabber options contain `-` characters (e.g. `save-mean`), which cannot be used as 
+field names in a Matlab structure. This poses a problem, because this is what we use
+to pass the `rundata` options in the above example. 
 
-The solution is to substitute underscore characters `_` instead, as we have done above 
-for the `save-mean` parameter which is specified as `rundata.save_mean`.
+The solution is to substitute underscore characters `_` instead, as we have done 
+for the `save-mean` parameter which is specified as `rundata.save_mean`. The Matlab interface
+will convert the underscores back into `-` before passing them to Fabber.
 
 No core Fabber options contain a `_` normally, so this will usually work. However, some
 Fabber models may have options which genuinely contain the `_` character. To solve this
@@ -69,6 +70,7 @@ Issues/Limitations/ToDo
  - mask must be logical type (*not* integer - use `logical()` to convert an integer array for now)
  - Additional model outputs not yet supported
  - Model libraries must be loaded by providing the `loadmodels` option - there is no automatic loading of model libraries
+ - There is currently no provision for matrix-data to be passed directly - for example the dataspec in CEST. As currently, this must be written to a file and the filename passed as the appropriate option.
 
 
 
