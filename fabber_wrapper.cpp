@@ -393,6 +393,17 @@ void save_output(FabberRunDataArray *fab, mxArray *plhs[], vector<string> output
     }
 }
 
+void load_models(FabberRunDataArray *fab)
+{
+    string modellib = fab->GetStringDefault("loadmodels", "");
+    string model = fab->GetStringDefault("model", "");
+    mexPrintf("Model is %s\n", model.c_str());
+    mexPrintf("Model lib is %s\n", modellib.c_str());
+    if (modellib != "") {
+        FwdModel::LoadFromDynamicLibrary(modellib);
+    }
+}
+
 /**
  * Entry point to fabber function 
  */
@@ -417,6 +428,10 @@ void mexFunction(int nlhs, mxArray *plhs[],
         // Set up the options from the rundata argument
         set_rundata(fab, prhs[2], dims_4d);
         debug("Set rundata\n");
+
+        // Load models from shared libraries
+        load_models(fab);
+        debug("Loaded models\n");
 
         // Figure out what output data we're expecting 
         vector<string> outputs = get_outputs(fab);
