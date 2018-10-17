@@ -35,6 +35,8 @@ Fabber models may have options which genuinely contain the `_` character. To sol
 problem, the Matlab module checks known model options, and if an option is specified which 
 matches one of these, it will be used directly without substitution of underscores. 
 
+*So, just replace `-` with `_` in your option names and everything should work...*
+
 Additional voxel data
 ---------------------
 
@@ -42,9 +44,7 @@ Additional data required for some models can be specified in the rundata in the 
 way, for example:
 
     aif = load_untouch_nii('aif.nii.gz')
-    rundata.suppdata = double(aif.img)
-
-Note that all voxel data must currently be `double` type.
+    rundata.suppdata = aif.img
 
 Compiling
 ---------
@@ -66,10 +66,6 @@ which should be run from the Visual Studio Tools command prompt, e.g.
 Issues/Limitations/ToDo
 -----------------------
 
- - data must be double-precision (use `double()` to convert integer data for now)
- - mask must be logical type (*not* integer - use `logical()` to convert an integer array for now)
- - Additional model outputs not yet supported
- - Model libraries must be loaded by providing the `loadmodels` option - there is no automatic loading of model libraries
  - There is currently no provision for matrix-data to be passed directly - for example the dataspec in CEST. As currently, this must be written to a file and the filename passed as the appropriate option.
 
 
