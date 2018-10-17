@@ -17,7 +17,7 @@ endif(UNIX)
 
 find_package(Matlab COMPONENTS MX_LIBRARY REQUIRED)
 
-set(SRC fabber.cpp)
+set(SRC fabber_wrapper.cpp)
 
 # Find FSL dependencies
 
@@ -105,6 +105,6 @@ add_definitions(-DGIT_SHA1="${GIT_SHA1}" -DGIT_DATE="${GIT_DATE}" -Dfabbercore_s
 
 # Main Targets
 
-matlab_add_mex(NAME fabber SRC ${SRC} LINK_TO ${LIBS})
+matlab_add_mex(NAME fabber_wrapper SRC ${SRC} LINK_TO ${LIBS})
 
 
