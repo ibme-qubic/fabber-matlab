@@ -16,6 +16,9 @@
 #include <memory>
 #include <algorithm>
 #include <assert.h>
+#include <io.h>  
+#include <direct.h>  
+#include <fstream>  
 
 using namespace std;
 
@@ -23,7 +26,7 @@ using namespace std;
 void debug(const char *msg)
 {
 #ifdef DEBUG 
-    mexPrintf(msg);
+    mexPrintf("%s\n", msg);
 #endif
 }
 
@@ -32,9 +35,9 @@ void debug(const char *msg)
  *
  * @param arr Array which must be 3D or 4D
  * @param dims_4d An array of 4 dimensions from the main data. 
- * @param name Name for use in error output
+ * @return true if dimesions match, false otherwise
  */
-void dims_match(const mxArray *arr, const mwSize *dims_4d, const char *name)
+bool dims_match(const mxArray *arr, const mwSize *dims_4d)
 {
     mwSize arr_ndims = mxGetNumberOfDimensions(arr);
     const mwSize *arr_dims = mxGetDimensions(arr);
@@ -42,10 +45,25 @@ void dims_match(const mxArray *arr, const mwSize *dims_4d, const char *name)
     if (arr_ndims < ndims) ndims = arr_ndims;
     for (int i=0; i<ndims; i++) {
         if (dims_4d[i] != arr_dims[i]) { 
-            mexPrintf("Data item: %s\n", name);
-            mexErrMsgIdAndTxt("Fabber:run:dims_match",
-                              "Dimensions of above item are not compatible with main data");
+            return false;
         }
+    }
+    return true;
+}
+
+/**
+ * Ensure dimensions of array are consistent with the 4D data set
+ *
+ * @param arr Array which must be 3D or 4D
+ * @param dims_4d An array of 4 dimensions from the main data. 
+ * @param name Name for use in error output
+ */
+void check_dims(const mxArray *arr, const mwSize *dims_4d, const char *name)
+{
+    if (!dims_match(arr, dims_4d)) {
+        mexPrintf("Data item: %s\n", name);
+        mexErrMsgIdAndTxt("Fabber:run:check_dims",
+                          "Dimensions of above item are not compatible with main data");
     }
 }
 
@@ -94,7 +112,7 @@ const mwSize *validate_input(int nlhs, mxArray *plhs[],
          mexErrMsgIdAndTxt("Fabber:maskNot3D", "Mask data must be 3D");
     }
     const mwSize *mask_dims = mxGetDimensions(prhs[1]);
-    dims_match(prhs[1], dims_4d, "mask");
+    check_dims(prhs[1], dims_4d, "mask");
     
     /* Checks on the rundata input */
     if(!mxIsStruct(prhs[2])) {
@@ -124,7 +142,6 @@ bool single_value(mxArray *arr)
  */
 void add_string(FabberRunDataArray *fab, const char *key, const mxArray *arr)
 {
-    debug("Rundata: add_string\n");
     char *fvalue = mxArrayToString(arr);
     //mexPrintf("Rundata: field %s=%s - char\n", key, fvalue);
     fab->Set(key, fvalue);
@@ -147,9 +164,71 @@ void add_numeric(FabberRunDataArray *fab, const char *key, const mxArray *arr)
         //mexPrintf("Rundata: field %s=%f - single\n", key, val);
         fab->Set(key, val);
     }
+//    else {
+//        mexErrMsgIdAndTxt("Fabber:add_numeric", "Integer options not yet implemented - use a real instead");
+//    }
+}
+
+char *mkdtemp(char *tmpl)
+{
+	if (!*_mktemp(tmpl) || _mkdir(tmpl))
+		return NULL;
+	return tmpl;
+}
+
+string matrix_to_tempfile(const char *key, double *data, int nx, int ny)
+{
+    char *tmpl = strdup("fabmexXXXXXX");
+    char* tempdir = mkdtemp(tmpl);
+    if (!tempdir) {
+        free(tmpl);
+        mexErrMsgIdAndTxt("Fabber:matrix_to_tempfile", "Failed to create temporary file");
+    }
+
+    string filename = tempdir;
+    free(tmpl);
+    filename += "/";
+    filename += key;
+    filename += ".mat";
+    mexPrintf("Temp filename is %s\n", filename.c_str());
+
+    // Write matrix data as tab-separated making sure we preserve the MATLAB data ordering
+    ofstream matrix_file;
+	matrix_file.open(filename);
+    for (int x=0; x<nx; x++) {
+        for (int y=0; y<ny; y++) {
+            matrix_file << data[y*nx + x] << '\t';
+        }
+        matrix_file << endl;
+    }
+    matrix_file.close();
+    return filename;
+}
+
+/**
+ * Interpret an array as containing a matrix to be passed as a temporary ASCII file
+ */
+void add_matrixfile(FabberRunDataArray *fab, const char *key, const mxArray *arr)
+{
+    mwSize arr_ndims = mxGetNumberOfDimensions(arr);
+    unsigned int data_size = 1;
+    if (arr_ndims != 2) {
+        mexPrintf("Rundata item: %s\n", key);
+        mexErrMsgIdAndTxt("Fabber:add_matrixfile", "Matrix options must be 2 dimensional");
+    }
+    const mwSize *dims_2d = mxGetDimensions(arr);
+    void *data = mxGetData(arr);
+
+    if (mxIsDouble(arr)) {
+        double *vals = (double *)data;
+        fab->Set(key, matrix_to_tempfile(key, vals, dims_2d[0], dims_2d[1]));
+    }
+    else if (mxIsSingle(arr)) {
+        float *vals = (float *)data;
+        mexErrMsgIdAndTxt("Fabber:add_matrixfile", "single precision matrices not yet implemented - use a real instead");
+    }
     else {
-        // FIXME does not seem to work
-        mexErrMsgIdAndTxt("Fabber:intOptions", "Integer options not yet working - use a real instead");
+        mexErrMsgIdAndTxt("Fabber:add_matrixfile", "Integer matrices not yet implemented - use a real instead");
     }
 }
 
@@ -163,7 +242,7 @@ void add_numeric(FabberRunDataArray *fab, const char *key, const mxArray *arr)
 void add_data(FabberRunDataArray *fab, const char *key, const mxArray *arr, const mwSize *dims_4d)
 {
     // Make sure data is double type and matches dimensions of main data
-    dims_match(arr, dims_4d, key);
+    check_dims(arr, dims_4d, key);
     if (!mxIsDouble(arr)) {
         mexPrintf("Data: %s\n", key);
         mexErrMsgIdAndTxt("Fabber:dataNotDouble", "Voxel data above must by type double");
@@ -194,20 +273,14 @@ void add_data(FabberRunDataArray *fab, const char *key, const mxArray *arr, cons
  *
  * @see real_option_name
  */
-vector<string> model_option_names(string model_name)
+vector<OptionSpec> get_model_options(string model_name)
 {
     auto_ptr<FwdModel> model(FwdModel::NewFromName(model_name));
-    vector<string> option_names;
     EasyLog log;
     model->SetLogger(&log); // We ignore the log but this stops it going to cerr
     vector<OptionSpec> options;
     model->GetOptions(options);
-    for (vector<OptionSpec>::iterator iter = options.begin(); iter != options.end(); ++iter)
-    {
-        option_names.push_back(iter->name);
-    }
-
-    return option_names; 
+    return options; 
 }
 
 /**
@@ -221,16 +294,36 @@ vector<string> model_option_names(string model_name)
  *
  * Core fabber options should never contain '_'
  */
-string real_option_name(string option, vector<string> &model_options)
+string real_option_name(string option, vector<OptionSpec> &model_options)
 {
-    //mexPrintf("real_option_name: in %s\n", option);
-    if (std::find(model_options.begin(), model_options.end(), option) == model_options.end())
+    for (vector<OptionSpec>::iterator iter = model_options.begin(); iter != model_options.end(); ++iter)
     {
-        // Option not found in model - Replace underscore with '-'
-        std::replace(option.begin(), option.end(), '_', '-');
-        //mexPrintf("real_option_name: out %s\n", option);
+        if (option == iter->name) {
+            return option;
+        }
     }
+
+    // Option not found in model - Replace underscore with '-'
+    std::replace(option.begin(), option.end(), '_', '-');
     return option;
+}
+
+/**
+ * Determine if an option is supposed to contain a matrix (NOT voxel data)
+ *
+ * These options are normally passed as filenames of ASCII matrix files but
+ * we can sneakily pass them as native MATLAB matrices
+ */
+bool is_matrix_option(string option, vector<OptionSpec> &model_options)
+{ 
+    for (vector<OptionSpec>::iterator iter = model_options.begin(); iter != model_options.end(); ++iter)
+    {
+        if (option == iter->name) {
+            return (iter->type == OPT_MATRIX);
+        }
+    }
+
+    return false;
 }
 
 /** 
@@ -244,20 +337,26 @@ void set_rundata(FabberRunDataArray *fab, const mxArray *rd_str, const mwSize *d
     // Get model option names - need to first know the model name
     // We use the list of model names to map MATLAB struct field
     // names onto Fabber options which can contain '-' characters
-    vector<string> model_options;
+    vector<OptionSpec> model_options;
     for(int i=0; i<nfields; i++) {
         const char *field_name = mxGetFieldNameByNumber(rd_str, i);
         if (strcmp(field_name, "model") == 0) {
-            model_options = model_option_names("poly");
+            mxArray *field = mxGetFieldByNumber(rd_str, 0, i);
+            char *model = mxArrayToString(field);
+            model_options = get_model_options(model);
         }
     }
     
     // Now go through each field and determine what kind of option it is
     for(int i=0; i<nfields; i++) {
-        //mexPrintf("Rundata: field %d\n", i+1);
-        string name = real_option_name(mxGetFieldNameByNumber(rd_str, i), model_options);
+        const char *field_name = mxGetFieldNameByNumber(rd_str, i);
+        string name = real_option_name(field_name, model_options);
+
+        // Loadmodels option already dealt with in load_models()
+        if (name == "loadmodels") continue;
+
         mxArray *field = mxGetFieldByNumber(rd_str, 0, i);
-        if(field == NULL) {
+        if (field == NULL) {
             mexPrintf("Rundata: field %d(%s)\n", i+1, name.c_str());
             mexErrMsgIdAndTxt("Fabber:emptyField", "Above field is empty!");
         }
@@ -268,6 +367,11 @@ void set_rundata(FabberRunDataArray *fab, const mxArray *rd_str, const mwSize *d
         else if (mxIsNumeric(field)) {
             if (single_value(field)) {
                 add_numeric(fab, name.c_str(), field);
+            }
+            else if (is_matrix_option(name, model_options)) {
+                // This is a matrix input that Fabber expects as an ASCII matrix file
+                mexPrintf("Matix option: %s\n", name);
+                add_matrixfile(fab, name.c_str(), field);
             }
             else {
                 add_data(fab, name.c_str(), field, dims_4d);
@@ -311,18 +415,58 @@ vector<string> get_outputs(FabberRunDataArray *fab)
     EasyLog log;
     model->SetLogger(&log); // We ignore the log but this stops it going to cerr
     model->Initialize(*fab);
+
+    // Parameter mean/std
     vector<Parameter> params;
     model->GetParameters(*fab, params);
     vector<Parameter>::iterator iter;
     for (iter = params.begin(); iter != params.end(); ++iter)
     {
-        //mexPrintf("Param: %s", iter->name);
         if (fab->GetBool("save-mean")) {
             outputs.push_back(string("mean_") + iter->name);
         }
         if (fab->GetBool("save-std")) {
             outputs.push_back(string("stdev_") + iter->name);
+        } 
+        if (fab->GetBool("save-zstat")) {
+            outputs.push_back(string("zstat_") + iter->name);
         }
+    }
+
+    // 'Extra' outputs which may be provided by the model
+    if (fab->GetBool("save-model-extras")) {
+        vector<string> extra_outputs;
+        model->GetOutputs(extra_outputs);
+        vector<string>::iterator siter;
+        for (siter = extra_outputs.begin(); siter != extra_outputs.end(); ++siter) {
+            outputs.push_back(*siter);
+        }
+    }
+    
+    // Additional outputs not linked to parameters
+    if (fab->GetBool("save-model-fit")) {
+        outputs.push_back("modelfit");
+    }
+    if (fab->GetBool("save-residuals")) {
+        outputs.push_back("residuals");
+    }
+    if (fab->GetBool("save-free-energy")) {
+        outputs.push_back("freeEnergy"); // FIXME
+    }
+    if (fab->GetBool("save-noise_mean")) {
+        outputs.push_back("noise_means");
+    }
+    if (fab->GetBool("save-noise_std")) {
+        outputs.push_back("noise_stdevs");
+    }
+    if (fab->GetBool("save-mvn")) {
+        outputs.push_back("finalMVN");
+    }
+
+    // Make sure something is output
+    if (outputs.size() == 0) {
+        fab->SetBool("save-model-fit");
+        outputs.push_back("modelfit");
     }
 
     return outputs;
@@ -355,20 +499,22 @@ string run(FabberRunDataArray *fab)
 /**
  * Save the Fabber data outputs to the Matlab return structure
  */
-void save_output(FabberRunDataArray *fab, mxArray *plhs[], vector<string> output_items, const mwSize *dims_4d)
+void save_output(FabberRunDataArray *fab, mxArray *plhs[], vector<string> output_items, const mwSize *dims_4d, const char *log)
 {
     // Need to construct a char ** array of item names
     vector<const char *> item_names;
     for (int i=0; i<output_items.size(); i++) {
-        //mexPrintf("Outputting %s\n", output_items[i]);
         item_names.push_back(output_items[i].c_str());
     }
+    item_names.push_back("log");
 
     mwSize output_struct_dims[2] = {1,1};
     plhs[0] = mxCreateStructArray(2, output_struct_dims, item_names.size(), &item_names[0]);
 
     for (int i=0; i<output_items.size(); i++) {
         string name = output_items[i];
+        debug("Saving output item");
+        debug(name.c_str());
 
         // Construct the dimensions array depending on the data size
         int data_size = fab->GetVoxelDataSize(name);
@@ -386,21 +532,47 @@ void save_output(FabberRunDataArray *fab, mxArray *plhs[], vector<string> output
             arr = mxCreateNumericArray(3, &dims[0], mxSINGLE_CLASS, mxREAL);
         }
         float *outdata = (float *)mxGetData(arr);
-        //mexPrintf("Created output array for %s\n", name);
         fab->GetVoxelDataArray(name, outdata);
-        //mexPrintf("Saved %s\n", name);
         mxSetField(plhs[0], 0, name.c_str(), arr);
     }
+
+    // Set the log in the output struct
+    debug("Saving output log");
+    mxArray *log_arr = mxCreateString(log);  
+    mxSetField(plhs[0], 0, "log", log_arr);
 }
 
-void load_models(FabberRunDataArray *fab)
+void load_models(const mxArray *rundata_struc)
 {
-    string modellib = fab->GetStringDefault("loadmodels", "");
-    string model = fab->GetStringDefault("model", "");
-    mexPrintf("Model is %s\n", model.c_str());
-    mexPrintf("Model lib is %s\n", modellib.c_str());
-    if (modellib != "") {
-        FwdModel::LoadFromDynamicLibrary(modellib);
+    int nfields = mxGetNumberOfFields(rundata_struc); 
+    
+    // Get loadmodels options. Note that we need to do this before our
+    // generic parsing of the rundata struct because the model libraries
+    // need to be loaded before then.
+    string loadmodels;
+    for(int i=0; i<nfields; i++) {
+        const char *field_name = mxGetFieldNameByNumber(rundata_struc, i);
+        if (strcmp(field_name, "loadmodels") == 0) {
+            mxArray *field = mxGetFieldByNumber(rundata_struc, 0, i);
+            loadmodels = mxArrayToString(field);
+        }
+    }
+
+    // loadmodels is delimited by semicolons
+    std::string delimiter = ";";
+
+    size_t pos = 0;
+    debug("Loading model libraries");
+    while ((pos = loadmodels.find(delimiter)) != std::string::npos) {
+        std::string modellib = loadmodels.substr(0, pos);
+        try {
+            debug(modellib.c_str());
+            FwdModel::LoadFromDynamicLibrary(modellib);
+        }
+        catch (...) {
+            mexPrintf("WARNING: failed to load model library %s\n", modellib.c_str());
+        }
+        loadmodels.erase(0, pos + delimiter.length());
     }
 }
 
@@ -425,28 +597,25 @@ void mexFunction(int nlhs, mxArray *plhs[],
         add_data(fab, "data", prhs[0], dims_4d);
         debug("Added main data\n");
 
+        // Load models from shared libraries
+        load_models(prhs[2]);
+        debug("Loaded models\n");
+
         // Set up the options from the rundata argument
         set_rundata(fab, prhs[2], dims_4d);
         debug("Set rundata\n");
 
-        // Load models from shared libraries
-        load_models(fab);
-        debug("Loaded models\n");
-
         // Figure out what output data we're expecting 
         vector<string> outputs = get_outputs(fab);
         debug("Got outputs\n");
-
-        // Always output the model fit
-        fab->SetBool("save-model-fit");
-        outputs.push_back("modelfit");
 
         // Run fabber
         string log = run(fab);
         debug(log.c_str());
 
         // Save output data items 
-        save_output(fab, plhs, outputs, dims_4d);
+        save_output(fab, plhs, outputs, dims_4d, log.c_str());
+        debug("saved outputs\n");        
     }
     catch (const FabberError &e)
     {
