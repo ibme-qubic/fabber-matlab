@@ -57,8 +57,8 @@ way, for example:
 Issues/Limitations/ToDo
 -----------------------
 
+ - Error handling is largely non-existant at present
+
  - There is currently no provision for matrix-data to be passed directly - for example the dataspec in CEST. As currently, this must be written to a file and the filename passed as the appropriate option.
-
-
 
 
