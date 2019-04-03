@@ -1,5 +1,6 @@
 % get_fabber_exe.m
 %
+% Get the executable to use when running a specified model
 function [exe] = get_fabber_exe(model)
     all_models = get_fabber_models();
     if (isempty(model))

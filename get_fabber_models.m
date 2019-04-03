@@ -1,5 +1,9 @@
 % get_fabber_models.m
 %
+% Get all the Fabber executables and models known to the interface
+%
+% Returns an array of structures, each containing the 
+% fields 'exe' (name of executable) and 'models' (array of model names)
 function [all_models] = get_fabber_models()
     model_num = 1;
     bindir = [getenv('FSLDIR') '/bin'];

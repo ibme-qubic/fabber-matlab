@@ -1,5 +1,15 @@
-% get_fabber_exe.m
+% get_fabber_options.m
 %
+% Get available Fabber options for a model (and optionally inference method)
+%
+% If the 'method' input is given, options for this inference method are returned
+% as well. If the input 'generic' is given and is 'true', return generic options
+% valid for all models/methods
+%
+% Returns an array of structures, each containing the 
+% fields 'name' (option name), 'type' (option type, e.g. 'STR', 'FLOAT', 'IMAGE')
+% 'req' (Whether option is required or not), 'def' (option default value if 
+% not required) and 'description' (Brief description of option)
 function [options] = get_fabber_options(model, method, generic)
     if nargin < 2
         method = '';
