@@ -1,4 +1,5 @@
 % Example usage of the Fabber-Matlab API 
+rundata = struct();
 rundata.data = rand(10, 10, 10, 5);
 rundata.mask = ones(10, 10, 10);
 rundata.model='poly';
@@ -6,6 +7,7 @@ rundata.degree = 3;
 rundata.method='vb';
 rundata.noise='white';
 rundata.save_mean = true;
+rundata.save_model_fit = true;
 
 output = fabber(rundata)
 
