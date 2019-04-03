@@ -44,7 +44,7 @@ function [cl] = build_cl(rundata)
     for i = 1:numel(args)
         arg = args{i};
         val = rundata.(arg);
-        if (strfind(arg, 'PSP_') ~= 1);
+        if isempty(strfind(arg, 'PSP_'));
             arg = strrep(arg, '_', '-');
         end
         cl = [cl ' --' arg];
