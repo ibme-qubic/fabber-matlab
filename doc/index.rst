@@ -44,22 +44,22 @@ contains the 4D model prediction.
 Option specification
 --------------------
 
-Many Fabber options contain `-` characters (e.g. `save-mean`), which cannot be used as 
+Many Fabber options contain ``-`` characters (e.g. ``save-mean``), which cannot be used as 
 field names in a Matlab structure. This poses a problem, because this is what we use
-to pass the `rundata` options in the above example. 
+to pass the ``rundata`` options in the above example. 
 
-The solution is to substitute underscore characters `_` instead, as we have done 
-for the `save-mean` parameter which is specified as `rundata.save_mean`. The Matlab interface
-will convert the underscores back into `-` before passing them to Fabber.
+The solution is to substitute underscore characters ``_`` instead, as we have done 
+for the ``save-mean`` parameter which is specified as ``rundata.save_mean``. The Matlab interface
+will convert the underscores back into ``-`` before passing them to Fabber.
 
-Only a couple of core Fabber options contain a `_` normally and these are handled specially.
-Model options should never use an underscore in their options.
+Only a couple of core Fabber options contain a ``_`` normally and these are handled specially.
+Models should never use an underscore in their options.
 
 Additional voxel data
 ---------------------
 
 Additional data required for some models can be specified in the rundata in the expected
-way, for example:
+way, for example::
 
     aif = load_untouch_nii('aif.nii.gz')
     rundata.suppdata = aif.img
