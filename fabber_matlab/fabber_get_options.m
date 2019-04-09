@@ -1,4 +1,4 @@
-% get_fabber_options.m
+% fabber_get_options.m
 %
 % Get available Fabber options for a model (and optionally inference method)
 %
@@ -10,7 +10,7 @@
 % fields 'name' (option name), 'type' (option type, e.g. 'STR', 'FLOAT', 'IMAGE')
 % 'req' (Whether option is required or not), 'def' (option default value if 
 % not required) and 'description' (Brief description of option)
-function [options] = get_fabber_options(model, method, generic)
+function [options] = fabber_get_options(model, method, generic)
     if nargin < 2
         method = '';
     end;
@@ -18,7 +18,7 @@ function [options] = get_fabber_options(model, method, generic)
         generic = false;
     end;
 
-    exe = get_fabber_exe(model);
+    exe = fabber_get_exe(model);
     opt_lines = '';
 
     if (~isempty(model))

@@ -39,7 +39,7 @@ end
 
 function [cl] = build_cl(rundata)
     % Build command line string from rundata options
-    cl = get_fabber_exe(rundata.model);
+    cl = fabber_get_exe(rundata.model);
     args = fieldnames(rundata);
     for i = 1:numel(args)
         arg = args{i};
@@ -79,7 +79,7 @@ function [rundata, tempfiles] = convert_data_options(rundata)
     % run.
     args = fieldnames(rundata);
     tempfiles = {};
-    options = get_fabber_options(rundata.model, rundata.method, true);
+    options = fabber_get_options(rundata.model, rundata.method, true);
     for i = 1:numel(args)
         arg = args{i};
         val = rundata.(arg);

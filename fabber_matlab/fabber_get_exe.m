@@ -1,8 +1,8 @@
-% get_fabber_exe.m
+% fabber_get_exe.m
 %
 % Get the executable to use when running a specified model
-function [exe] = get_fabber_exe(model)
-    all_models = get_fabber_models();
+function [exe] = fabber_get_exe(model)
+    all_models = fabber_get_models();
     if (isempty(model))
         model = 'poly';
     end
