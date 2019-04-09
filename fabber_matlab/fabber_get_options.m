@@ -57,7 +57,7 @@ function [options] = parse_options(opt_lines)
                 options = [options current_option];
             end;
             current_option = names{1};
-            current_option.description = '';
+            current_option.description = [];
             %if (current_option.def == 'NO DEFAULT');
             %    current_option.def = '';
             %else
@@ -69,4 +69,7 @@ function [options] = parse_options(opt_lines)
             end
         end
     end
+    if (~isempty(current_option));
+        options = [options current_option];
+    end;
 end
