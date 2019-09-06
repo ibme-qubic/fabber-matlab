@@ -3,6 +3,8 @@ Fabber MATLAB interface
 
 This module contains a thin wrapper between Matlab and the Fabber_ Bayesian model fitting tool. 
 It works by calling the command line programs and writing out data sets as temporary Nifti files.
+The module is available from the 
+`Matlab File Exchange <https://uk.mathworks.com/matlabcentral/fileexchange/71109-fabber-matlab>`_
 
 The Matlab toolbox `Tools for Nifti and Analyze`_ is required for the wrapper to work.
 
